@@ -295,10 +295,26 @@ let C={},sel=null,tf='1mo',chart=null,cS=null,view='ov';
 setInterval(()=>document.getElementById('clock').textContent=new Date().toLocaleTimeString('vi-VN',{hour12:false}),1000);
 
 async function yf(t){
-  const u=`https://query1.finance.yahoo.com/v8/finance/chart/${t}?interval=1d&range=1y`;
-  const p=`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`;
-  const r=await fetch(p,{cache:'no-store'});
-  return JSON.parse((await r.json()).contents);
+  const u=`https://query1.finance.yahoo.com/v8/finance/chart/${t}?interval=1d&range=1y&includePrePost=false`;
+  const proxies=[
+    r=>`https://corsproxy.io/?${encodeURIComponent(r)}`,
+    r=>`https://api.allorigins.win/get?url=${encodeURIComponent(r)}`,
+    r=>`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(r)}`,
+  ];
+  let lastErr;
+  for(const mk of proxies){
+    try{
+      const resp=await fetch(mk(u),{cache:'no-store',signal:AbortSignal.timeout(8000)});
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const txt=await resp.text();
+      let data;
+      try{const j=JSON.parse(txt);data=j.contents?JSON.parse(j.contents):j;}
+      catch{data=JSON.parse(txt);}
+      if(data?.chart?.result) return data;
+      throw new Error('bad');
+    }catch(e){lastErr=e;}
+  }
+  throw lastErr;
 }
 
 async function load(yt){
